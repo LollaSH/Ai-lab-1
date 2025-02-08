@@ -6,11 +6,13 @@ from sys import argv
 class Graphics:
     def __init__(self):
         self.root = Tk()
+        self.root.configure(bg="green")
+        self.root.geometry("800x800")
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         self.root.bind('<Destroy>', self.destroy)
 
-        self.canvas = Canvas(self.root)
+        self.canvas = Canvas(self.root, bg="green")
         self.canvas.grid(column=0, row=0, sticky=(N, W, E, S))
         self.canvas.bind('<Button-1>', self.on_click)
         self.canvas.bind('<Configure>', self.save_wh)
@@ -22,6 +24,10 @@ class Graphics:
         self.click_callbacks = []
 
         self.board = np.zeros((8,8), dtype=int)
+        self.board[3, 3] = -1
+        self.board[4, 4] = -1
+        self.board[4, 3] = 1
+        self.board[3, 4] = 1
 
         self.running = True
         self.root.update()
@@ -41,8 +47,8 @@ class Graphics:
         self.click_callbacks.append(callback)
 
     def on_click(self, event):
-        sq_w = self.w // 3
-        sq_h = self.h // 3
+        sq_w = self.w // 8
+        sq_h = self.h // 8
         row = event.y // sq_h
         col = event.x // sq_w
         for f in self.click_callbacks:
@@ -59,7 +65,7 @@ class Graphics:
         sq_h = self.h // 8
         cx = sq_w // 2
         cy = sq_h // 2
-        r = min(sq_w, sq_h) * 0.1#0.45
+        r = min(sq_w, sq_h) * 0.4#0.45
         top = cy - r
         left = cx - r
         bottom = cy + r
@@ -68,20 +74,14 @@ class Graphics:
         for i in range(8):
             self.canvas.create_line(0, i* sq_h, self.w, i*sq_h, width=5)
             self.canvas.create_line(i*sq_w, 0, i*sq_w, self.h, width=5)
-            
-        #self.canvas.create_line(0, sq_h, self.w, sq_h, width=5)
-        #self.canvas.create_line(0, 2*sq_h, self.w, 2*sq_h, width=5)
-        #self.canvas.create_line(sq_w, 0, sq_w, self.h, width=5)
-        #self.canvas.create_line(2*sq_w, 0, 2*sq_w, self.h, width=5)
 
         for i in range(8):
             for j in range(8):
                 val = board[i, j]
                 if val == 1:
-                    self.canvas.create_line(j*sq_w + left, i*sq_h + top, j*sq_w + right, i*sq_h + bottom, width=5)
-                    self.canvas.create_line(j*sq_w + right, i*sq_h + top, j*sq_w + left, i*sq_h + bottom, width=5)
+                    self.canvas.create_oval(j*sq_w + left, i*sq_h + top, j*sq_w + right, i*sq_h + bottom, width=5, fill="black", outline="black")
                 elif val == -1:
-                    self.canvas.create_oval(j*sq_w + left, i*sq_h + top, j*sq_w + right, i*sq_h + bottom, width=5)
+                    self.canvas.create_oval(j*sq_w + left, i*sq_h + top, j*sq_w + right, i*sq_h + bottom, width=5, fill="white")
 
         self.root.update()
 
@@ -92,30 +92,85 @@ def has_won(board, player):
            (pieces[0,0] and pieces[1,1] and pieces[2,2]) or \
            (pieces[0,2] and pieces[1,1] and pieces[2,0])
 
+
 def possible_moves(board, player):
-    pieces = list(zip(*np.where(board == player)))
-    empty = list(zip(*np.where(board == 0)))
+    d = np.ones((8,8), dtype=int)
+    moves = []
     
-    if len(pieces) >= 3:
-        moves = [
-            { 'player': player, 'take': piece, 'put': slot }
-            for piece in pieces
-            for slot in empty
-        ]
-    else:
-        moves = [
-            { 'player': player, 'put': slot }
-            for slot in empty
-        ]
+    for i in range(8):
+        for j in range(8):
+            if board[i, j] == player:
+                flips = 0
+                for hp in range(i+1, 8):
+                    b = board[hp, j]
+                    if b == -player:
+                        flips+=1
+                    elif b == 0 and flips != 0:
+                        d[hp, j] = 0
+                        flips = 0
+                        break
+                    elif b == player:
+                        flips = 0
+                        break
+                    elif b == 0 and flips == 0:
+                        break
+                flips = 0
+                for hn in range(0, j):
+                    b = board[hn, j]
+                    if b == -player:
+                        flips+=1
+                    elif b == 0 and flips != 0:
+                        d[hn, j] = 0
+                        flips = 0
+                        break
+                    elif b == player:
+                        flips = 0
+                        break
+                    elif b == 0 and flips == 0:
+                        break
+                flips = 0
+                for vp in range(j + 1, 8):
+                    b = board[i, vp]
+                    if b == -player:
+                        flips+=1
+                    elif b == 0 and flips != 0:
+                        d[i, vp] = 0
+                        flips = 0
+                        break
+                    elif b == player:
+                        flips = 0
+                        break
+                    elif b == 0 and flips == 0:
+                        break
+                flips = 0
+                for vn in range(0, j):
+                    b = board[i, vn]
+                    if b == -player:
+                        flips+=1
+                    elif b == 0 and flips != 0:
+                        d[i, vn] = 0
+                        flips = 0
+                        break
+                    elif b == player:
+                        flips = 0
+                        break
+                    elif b == 0 and flips == 0:
+                        break
+                
+    
+    
+    empty = list(zip(*np.where(d == 0)))
+    
+
+    moves = [
+        { 'player': player, 'put': slot }
+        for slot in empty
+    ]
 
     return moves
 
 def update_board(board, move):
     board = board.copy()
-
-    if 'take' in move:
-        row, col = move['take']
-        board[row, col] = 0
 
     player = move['player']
     row, col = move['put']
@@ -127,6 +182,10 @@ class TicTacToe:
     def __init__(self):
         self.board = np.zeros((8, 8), dtype=int)
         self.winner = 0
+        self.board[3, 3] = -1
+        self.board[4, 4] = -1
+        self.board[4, 3] = 1
+        self.board[3, 4] = 1
         #self.board = np.random.choice([-1, 0, 1], (3, 3), replace=True)
 
     def get_board(self):
@@ -140,6 +199,10 @@ class TicTacToe:
 
     def reset(self):
         self.board[:,:] = 0
+        self.board[3, 3] = -1
+        self.board[4, 4] = -1
+        self.board[4, 3] = 1
+        self.board[3, 4] = 1
         self.winner = 0
 
     def make_move(self, move):
@@ -165,26 +228,6 @@ class TicTacToe:
         put_row, put_col = move['put']
         num_pieces = np.sum(self.board == player)
 
-        if 'take' in move:
-            take_row, take_col = move['take']
-
-            if num_pieces < 3:
-                raise Exception('This player has not player 3 pieces yet!')
-
-            val = self.board[take_row, take_col]
-            if val == 0:
-                raise Exception('Cannot take a piece from an empty slot!')
-            if val != player:
-                raise Exception('Cannot take a piece from the other player!')
-
-            if take_row == put_row and take_col == put_col:
-                raise Exception('Cannot move a marker to the same slot!')
-
-            self.board[take_row, take_col] = 0
-        
-        elif num_pieces >= 3:
-            raise Exception('This player has already played 3 pieces, so they cannot place a new one')
-
         if self.board[put_row, put_col] != 0:
             raise Exception('Cannot place a piece in a non-empty slot!')
 
@@ -192,6 +235,7 @@ class TicTacToe:
 
         if has_won(self.board, player):
             self.winner = player
+
 
 class HumanPlayer:
     def __init__(self, player, ui):
@@ -382,7 +426,9 @@ class MonteCarlo:
             p = -p
         return np.sum(self.player * board * self.piece_scores)
 
+
 def main():
+    
 
     n_games = 1
 
@@ -393,6 +439,7 @@ def main():
 
     graphics = Graphics()
     env = TicTacToe()
+    graphics.draw(board = env.get_board())
 
     n_wins = {
         1: 0,
@@ -406,12 +453,12 @@ def main():
     #player1 = EvalAlphaBeta(1)
     #player1 = MonteCarlo(1)
 
-    #player2 = HumanPlayer(-1, graphics)
+    player2 = HumanPlayer(-1, graphics)
     #player2 = RandomPlayer(-1)
     #player2 = MiniMax(-1)
     #player2 = EvalMiniMax(-1)
     #player2 = EvalAlphaBeta(-1)
-    player2 = MonteCarlo(-1)
+    #player2 = MonteCarlo(-1)
 
     n_played = 0
     for _ in range(n_games):
