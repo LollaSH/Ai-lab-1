@@ -86,27 +86,38 @@ class Graphics:
         self.root.update()
 
 def has_won(board, player):
-    pieces = board == player
-    return np.any(np.sum(pieces, axis=0) == 3) or \
-           np.any(np.sum(pieces, axis=1) == 3) or \
-           (pieces[0,0] and pieces[1,1] and pieces[2,2]) or \
-           (pieces[0,2] and pieces[1,1] and pieces[2,0])
+    
+    if np.sum(board == 0) == 0:
+        if np.sum(board == player) > np.sum(board == -player):
+            return True
+        else: 
+            return False
+    else:
+        return False
 
 
 def possible_moves(board, player):
     d = np.ones((8,8), dtype=int)
-    moves = []
+    
+    md = dict()
+    
     
     for i in range(8):
         for j in range(8):
             if board[i, j] == player:
                 flips = 0
+                flipped = set()
                 for hp in range(i+1, 8):
                     b = board[hp, j]
                     if b == -player:
+                        flipped.add((hp, j))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[hp, j] = 0
+                        pos = (hp, j)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -115,12 +126,18 @@ def possible_moves(board, player):
                     elif b == 0 and flips == 0:
                         break
                 flips = 0
-                for hn in range(0, j):
+                flipped = set()
+                for hn in reversed(range(0, i)):
                     b = board[hn, j]
                     if b == -player:
+                        flipped.add((hn, j))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[hn, j] = 0
+                        pos = (hn, j)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -129,12 +146,18 @@ def possible_moves(board, player):
                     elif b == 0 and flips == 0:
                         break
                 flips = 0
+                flipped = set()
                 for vp in range(j + 1, 8):
                     b = board[i, vp]
                     if b == -player:
+                        flipped.add((i, vp))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[i, vp] = 0
+                        pos = (i, vp)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -143,12 +166,18 @@ def possible_moves(board, player):
                     elif b == 0 and flips == 0:
                         break
                 flips = 0
-                for vn in range(0, j):
+                flipped = set()
+                for vn in reversed(range(0, j)):
                     b = board[i, vn]
                     if b == -player:
+                        flipped.add((i, vn))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[i, vn] = 0
+                        pos = (i, vn)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -157,14 +186,10 @@ def possible_moves(board, player):
                     elif b == 0 and flips == 0:
                         break
                 
-    
-    
-    empty = list(zip(*np.where(d == 0)))
-    
 
     moves = [
-        { 'player': player, 'put': slot }
-        for slot in empty
+        { 'player': player, 'put': slot, 'flipped': flipped }
+        for slot, flipped in md.items()
     ]
 
     return moves
@@ -172,16 +197,25 @@ def possible_moves(board, player):
 def allowed_moves(board, player):
     d = np.ones((8,8), dtype=int)
     
+    md = dict()
+    
+    
     for i in range(8):
         for j in range(8):
             if board[i, j] == player:
                 flips = 0
+                flipped = set()
                 for hp in range(i+1, 8):
                     b = board[hp, j]
                     if b == -player:
+                        flipped.add((hp, j))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[hp, j] = 0
+                        pos = (hp, j)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -190,12 +224,18 @@ def allowed_moves(board, player):
                     elif b == 0 and flips == 0:
                         break
                 flips = 0
+                flipped = set()
                 for hn in reversed(range(0, i)):
                     b = board[hn, j]
                     if b == -player:
+                        flipped.add((hn, j))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[hn, j] = 0
+                        pos = (hn, j)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -204,12 +244,18 @@ def allowed_moves(board, player):
                     elif b == 0 and flips == 0:
                         break
                 flips = 0
+                flipped = set()
                 for vp in range(j + 1, 8):
                     b = board[i, vp]
                     if b == -player:
+                        flipped.add((i, vp))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[i, vp] = 0
+                        pos = (i, vp)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -218,12 +264,18 @@ def allowed_moves(board, player):
                     elif b == 0 and flips == 0:
                         break
                 flips = 0
+                flipped = set()
                 for vn in reversed(range(0, j)):
                     b = board[i, vn]
                     if b == -player:
+                        flipped.add((i, vn))
                         flips+=1
                     elif b == 0 and flips != 0:
-                        d[i, vn] = 0
+                        pos = (i, vn)
+                        if pos in md:
+                            md[pos] = md[pos].union(flipped)
+                        else:
+                            md[pos] = flipped.copy()
                         flips = 0
                         break
                     elif b == player:
@@ -231,17 +283,18 @@ def allowed_moves(board, player):
                         break
                     elif b == 0 and flips == 0:
                         break
-                
     
-    
-    empty = list(zip(*np.where(d == 0)))
+    return md
 
-    return empty
 
 def update_board(board, move):
     board = board.copy()
-
     player = move['player']
+    
+    for r, c in move['flipped']:
+        board[r, c] = player
+
+    
     row, col = move['put']
     board[row, col] = player
 
@@ -295,12 +348,13 @@ class TicTacToe:
 
         player = move['player']
         put_row, put_col = move['put']
+        flipped = move['flipped']
         num_pieces = np.sum(self.board == player)
 
         if self.board[put_row, put_col] != 0:
             raise Exception('Cannot place a piece in a non-empty slot!')
 
-        self.board[put_row, put_col] = player
+        self.board = update_board(self.board, move=move)
 
         if has_won(self.board, player):
             self.winner = player
@@ -325,15 +379,18 @@ class HumanPlayer:
 
         board = env.get_board()
         pieces = set(zip(*np.where(board == self.player)))
-        empty = allowed_moves(board=board, player = self.player)
+        moves = allowed_moves(board=board, player = self.player)
+        if len(moves) == 0:
+            return
 
         try:
             move = {
                 'player': self.player
             }
             pos = self.get_click()
-            while pos not in empty: pos = self.get_click()
+            while pos not in moves: pos = self.get_click()
             move['put'] = pos
+            move['flipped'] = moves[pos]
 
             env.make_move(move)
         except: pass
