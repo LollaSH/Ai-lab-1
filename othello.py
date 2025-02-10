@@ -167,6 +167,8 @@ def possible_moves(board, player):
         {'player': player, 'put': slot, 'flipped': flipped}
         for slot, flipped in md.items()
     ]
+    
+    moves.sort(key=lambda move: len(move['flipped']), reverse=True)
 
     return moves
 
@@ -406,12 +408,12 @@ class EvalMiniMax:
         env.make_move(best_move)
 
     def min_player(self, board, depth):
-        if has_won(board, self.player): return 10
-        elif has_won(board, -self.player): return -10
+        if has_won(board, self.player): return 64
+        elif has_won(board, -self.player): return -64
         elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
         posMovesMinPl = possible_moves(board, -self.player)
         if len(posMovesMinPl) != 0:
-            scores = [self.max_player(update_board(board, move), depth+1) for move in possible_moves(board, -self.player)]
+            scores = [self.max_player(update_board(board, move), depth+1) for move in posMovesMinPl]
             return min(scores)
         posMovesPl = possible_moves(board, self.player)
         if len(posMovesPl) != 0:
@@ -421,8 +423,8 @@ class EvalMiniMax:
         
 
     def max_player(self, board, depth):
-        if has_won(board, self.player): return 10
-        elif has_won(board, -self.player): return -10
+        if has_won(board, self.player): return 64
+        elif has_won(board, -self.player): return -64
         elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
         posMovesPl = possible_moves(board, self.player)
         if len(posMovesPl) != 0:
@@ -435,7 +437,7 @@ class EvalMiniMax:
         else: return np.sum(board == self.player) - np.sum(board == -self.player)
 
 class EvalAlphaBeta:
-    def __init__(self, player, max_depth=3):
+    def __init__(self, player, max_depth=4):
         self.player = player
         self.max_depth = max_depth
         self.piece_scores = np.array([[1, 0, 1],
@@ -445,8 +447,10 @@ class EvalAlphaBeta:
     def move(self, env):
         board = env.get_board()
         best_score = -np.inf
-        best_move = None
-        for move in possible_moves(board, self.player):
+        posMoves = possible_moves(board, self.player)
+        if len(posMoves) == 0: return
+        best_move = posMoves[0]
+        for move in posMoves:
             score = self.min_player(update_board(board, move), best_score, np.inf, 1)
             if score > best_score:
                 best_score = score
@@ -454,26 +458,52 @@ class EvalAlphaBeta:
         env.make_move(best_move)
 
     def min_player(self, board, alpha, beta, depth):
-        if has_won(board, self.player): return 10
-        elif has_won(board, -self.player): return -10
-        elif depth == self.max_depth: return np.sum(self.player * board * self.piece_scores)
+        if has_won(board, self.player): return 64
+        elif has_won(board, -self.player): return -64
+        elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
         score = np.inf
-        for move in possible_moves(board, -self.player):
-            score = min(score, self.max_player(update_board(board, move), alpha, beta, depth+1))
-            beta = min(beta, score)
-            if score <= alpha: break
-        return score
+        posMovesMinPl = possible_moves(board, -self.player)
+        if len(posMovesMinPl) != 0:
+            for move in posMovesMinPl:
+                score = min(score, self.max_player(update_board(board, move), alpha, beta, depth+1))
+                beta = min(beta, score)
+                if score <= alpha: break
+            return score
+        posMovesPl = possible_moves(board, self.player)
+        if len(posMovesPl) != 0:
+            score = -np.inf
+            for move in posMovesPl:
+                score = max(score, self.max_player(update_board(board, move), alpha, beta, depth+1))
+                alpha = max(alpha, score)
+                if score >= beta: break
+            return score
+        else: return np.sum(board == self.player) - np.sum(board == -self.player)
+            
+            
 
     def max_player(self, board, alpha, beta, depth):
-        if has_won(board, self.player): return 10
-        elif has_won(board, -self.player): return -10
-        elif depth == self.max_depth: return np.sum(self.player * board * self.piece_scores)
+        if has_won(board, self.player): return 64
+        elif has_won(board, -self.player): return -64
+        elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
         score = -np.inf
-        for move in possible_moves(board, self.player):
-            score = max(score, self.max_player(update_board(board, move), alpha, beta, depth+1))
-            alpha = max(alpha, score)
-            if score >= beta: break
-        return score
+        posMovesPl = possible_moves(board, self.player)
+        if len(posMovesPl) != 0:
+            score = -np.inf
+            for move in posMovesPl:
+                score = max(score, self.max_player(update_board(board, move), alpha, beta, depth+1))
+                alpha = max(alpha, score)
+                if score >= beta: break
+            return score
+        posMovesMinPl = possible_moves(board, -self.player)
+        if len(posMovesMinPl) != 0:
+            for move in posMovesMinPl:
+                score = min(score, self.max_player(update_board(board, move), alpha, beta, depth+1))
+                beta = min(beta, score)
+                if score <= alpha: break
+            return score
+        else: return np.sum(board == self.player) - np.sum(board == -self.player)
+        
+
 
 class MonteCarlo:
     def __init__(self, player, max_depth=4, n_playouts=20):
@@ -510,7 +540,7 @@ class MonteCarlo:
 def main():
     
 
-    n_games = 1
+    n_games = 20
 
     if len(argv) >= 1:
         try:
@@ -527,18 +557,18 @@ def main():
         0: 0
     }
     
-    player1 = HumanPlayer(1, graphics)
+    #player1 = HumanPlayer(1, graphics)
     #player1 = RandomPlayer(1)
     #player1 = AIOutline(1)
     #player1 = MiniMax(1)
     #player1 = EvalMiniMax(1)
-    #player1 = EvalAlphaBeta(1)
+    player1 = EvalAlphaBeta(1)
     #player1 = MonteCarlo(1)
 
     #player2 = HumanPlayer(-1, graphics)
-    #player2 = RandomPlayer(-1)
+    player2 = RandomPlayer(-1)
     #player2 = MiniMax(-1)
-    player2 = EvalMiniMax(-1)
+    #player2 = EvalMiniMax(-1)
     #player2 = EvalAlphaBeta(-1)
     #player2 = MonteCarlo(-1)
 
