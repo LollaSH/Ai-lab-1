@@ -1,4 +1,4 @@
-from tkinter import Tk, Canvas, N, W, E, S, simpledialog, messagebox
+from tkinter import Tk, Canvas, N, W, E, S
 import numpy as np
 import time
 from sys import argv
@@ -264,6 +264,20 @@ class Othello:
         self.winner = 0
 
     def make_move(self, move):
+        # Move is a dict.
+        # Before a player has placed 3 pieces, it is only possible to
+        # place a new piece:
+        # move = {
+        #     'player': 1 or -1,
+        #     'put': (row, col)
+        # }
+        #
+        # After placing 3 pieces it is only possible to move a piece:
+        # move = {
+        #     'player': 1 or -1,
+        #     'take': (row, col),
+        #     'put': (row, col)
+        # }
 
         if self.winner != 0:
             raise Exception('This game is already over!')
@@ -278,6 +292,8 @@ class Othello:
 
         self.board = update_board(self.board, move=move)
 
+        #if has_won(self.board, player):
+        #    self.winner = player
 
 
 class HumanPlayer:
@@ -326,11 +342,107 @@ class RandomPlayer:
         move = np.random.choice(moves, 1)[0]
         env.make_move(move)
 
+class AIOutline:
+    def __init__(self, player):
+        self.player = player
+
+    def move(self, env):
+        moves = env.get_possible_moves(self.player)
+        if len(moves) == 0:
+            return
+        best_move = None
+        best_score = -1
+        for i in moves:
+            if len(i['flipped']) > best_score:
+                best_move = i
+                best_score = len(i['flipped'])
+        env.make_move(best_move)
+
+class MiniMax:
+    def __init__(self, player):
+        self.player = player
+
+    def move(self, env):
+        board = env.get_board()
+        best_score = -np.inf
+        best_move = None
+        for move in possible_moves(board, self.player):
+            new_board = update_board(board, move)
+            score = self.min_player(new_board)
+            if score > best_score:
+                best_score = score
+                best_move = move
+        env.make_move(best_move)
+
+    def min_player(self, board):
+        if has_won(board, self.player): return 1
+        elif has_won(board, -self.player): return -1
+        scores = [self.max_player(update_board(board, move)) for move in possible_moves(board, -self.player)]
+        return min(scores)
+
+    def max_player(self, board):
+        if has_won(board, self.player): return 1
+        elif has_won(board, -self.player): return -1
+        scores = [self.min_player(update_board(board, move)) for move in possible_moves(board, -self.player)]
+        return max(scores)
+
+class EvalMiniMax:
+    def __init__(self, player, max_depth=3):
+        self.player = player
+        self.max_depth = max_depth
+        self.piece_scores = np.array([[1, 0, 1],
+                                      [0, 2, 0],
+                                      [1, 0, 1]])
+
+    def move(self, env):
+        board = env.get_board()
+        best_score = -np.inf
+        best_move = None
+        posMoves = possible_moves(board, self.player)
+        if len(posMoves) == 0: return
+        for move in posMoves:
+            score = self.min_player(update_board(board, move), 1)
+            if score > best_score:
+                best_score = score
+                best_move = move
+        env.make_move(best_move)
+
+    def min_player(self, board, depth):
+        if has_won(board, self.player): return 64
+        elif has_won(board, -self.player): return -64
+        elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
+        posMovesMinPl = possible_moves(board, -self.player)
+        if len(posMovesMinPl) != 0:
+            scores = [self.max_player(update_board(board, move), depth+1) for move in posMovesMinPl]
+            return min(scores)
+        posMovesPl = possible_moves(board, self.player)
+        if len(posMovesPl) != 0:
+            scores = [self.min_player(update_board(board, move), depth+1) for move in posMovesPl]
+            return max(scores)
+        else: return np.sum(board == self.player) - np.sum(board == -self.player)
+        
+
+    def max_player(self, board, depth):
+        if has_won(board, self.player): return 64
+        elif has_won(board, -self.player): return -64
+        elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
+        posMovesPl = possible_moves(board, self.player)
+        if len(posMovesPl) != 0:
+            scores = [self.min_player(update_board(board, move), depth+1) for move in posMovesPl]
+            return max(scores)
+        posMovesMinPl = possible_moves(board, -self.player)
+        if len(posMovesMinPl) != 0:
+            scores = [self.max_player(update_board(board, move), depth+1) for move in posMovesMinPl]
+            return min(scores)
+        else: return np.sum(board == self.player) - np.sum(board == -self.player)
 
 class EvalAlphaBeta:
     def __init__(self, player, max_depth=4):
         self.player = player
         self.max_depth = max_depth
+        self.piece_scores = np.array([[1, 0, 1],
+                                      [0, 2, 0],
+                                      [1, 0, 1]])
 
     def move(self, env):
         board = env.get_board()
@@ -390,12 +502,46 @@ class EvalAlphaBeta:
                 if score <= alpha: break
             return score
         else: return np.sum(board == self.player) - np.sum(board == -self.player)
+        
+
+
+class MonteCarlo:
+    def __init__(self, player, max_depth=4, n_playouts=20):
+        self.player = player
+        self.max_depth = max_depth
+        self.n_playouts = n_playouts
+        self.piece_scores = np.array([[1, 0, 1],
+                                      [0, 2, 0],
+                                      [1, 0, 1]])
+
+    def move(self, env):
+        board = env.get_board()
+        moves = possible_moves(board, self.player)
+        scores = [self.monte_carlo(update_board(board, move)) for move in moves]
+        move = moves[np.argmax(scores)]
+        env.make_move(move)
+
+    def monte_carlo(self, board):
+        total = 0.0
+        for _ in range(self.n_playouts): total += self.playout(board)
+        return total / self.n_playouts
+
+    def playout(self, board):
+        p = -self.player
+        for _ in range(self.max_depth-1):
+            if has_won(board, self.player): return 10
+            elif has_won(board, -self.player): return -10
+            move = np.random.choice(possible_moves(board, p))
+            board = update_board(board, move)
+            p = -p
+        return np.sum(self.player * board * self.piece_scores)
+
+
 
 
 def main():
-    color = simpledialog.askstring("Choose color", "Select Color (B)lack or (W)hite: Enter 'b' or 'w'").strip().lower()
-    
-    n_games = 1
+
+    n_games = 20
 
     if len(argv) >= 1:
         try:
@@ -412,23 +558,20 @@ def main():
         0: 0
     }
     
-    if color == "b":
-        player1 = HumanPlayer(1, graphics)
-        player2 = EvalAlphaBeta(-1)
-    elif color == "c":
-        player1 = EvalAlphaBeta(1)
-        player2 = RandomPlayer(-1)
-    else:
-        player1 = EvalAlphaBeta(1)
-        player2 = HumanPlayer(-1, graphics)
-    
     #player1 = HumanPlayer(1, graphics)
     #player1 = RandomPlayer(1)
-    #player1 = EvalAlphaBeta(1)
+    #player1 = AIOutline(1)
+    #player1 = MiniMax(1)
+    #player1 = EvalMiniMax(1)
+    player1 = EvalAlphaBeta(1)
+    #player1 = MonteCarlo(1)
 
     #player2 = HumanPlayer(-1, graphics)
-    #player2 = RandomPlayer(-1)
+    player2 = RandomPlayer(-1)
+    #player2 = MiniMax(-1)
+    #player2 = EvalMiniMax(-1)
     #player2 = EvalAlphaBeta(-1)
+    #player2 = MonteCarlo(-1)
 
     n_played = 0
     for _ in range(n_games):
@@ -454,15 +597,6 @@ def main():
             n_played += 1
         if not graphics.running: break
 
-    message = ""
-    if(env.winner == 1):
-        message = "Black won"
-    elif(env.winner == -1):
-        message = "White won"
-    else:
-        message = "Draw"
-    
-    messagebox.showinfo("Game Over", message)
     print('Results:')
     print(f'black won {100.0 * n_wins[1] / n_played}% Nbr blacks: {np.sum(env.board == 1)}')
     print(f'white won {100.0 * n_wins[-1] / n_played}% Nbr whites: {np.sum(env.board == -1)}')

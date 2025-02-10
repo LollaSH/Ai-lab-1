@@ -1,4 +1,4 @@
-from tkinter import Tk, Canvas, N, W, E, S, simpledialog, messagebox
+from tkinter import Tk, Canvas, N, W, E, S
 import numpy as np
 import time
 from sys import argv
@@ -393,9 +393,8 @@ class EvalAlphaBeta:
 
 
 def main():
-    color = simpledialog.askstring("Choose color", "Select Color (B)lack or (W)hite: Enter 'b' or 'w'").strip().lower()
-    
-    n_games = 1
+
+    n_games = 20
 
     if len(argv) >= 1:
         try:
@@ -412,22 +411,12 @@ def main():
         0: 0
     }
     
-    if color == "b":
-        player1 = HumanPlayer(1, graphics)
-        player2 = EvalAlphaBeta(-1)
-    elif color == "c":
-        player1 = EvalAlphaBeta(1)
-        player2 = RandomPlayer(-1)
-    else:
-        player1 = EvalAlphaBeta(1)
-        player2 = HumanPlayer(-1, graphics)
-    
     #player1 = HumanPlayer(1, graphics)
     #player1 = RandomPlayer(1)
-    #player1 = EvalAlphaBeta(1)
+    player1 = EvalAlphaBeta(1)
 
     #player2 = HumanPlayer(-1, graphics)
-    #player2 = RandomPlayer(-1)
+    player2 = RandomPlayer(-1)
     #player2 = EvalAlphaBeta(-1)
 
     n_played = 0
@@ -454,15 +443,6 @@ def main():
             n_played += 1
         if not graphics.running: break
 
-    message = ""
-    if(env.winner == 1):
-        message = "Black won"
-    elif(env.winner == -1):
-        message = "White won"
-    else:
-        message = "Draw"
-    
-    messagebox.showinfo("Game Over", message)
     print('Results:')
     print(f'black won {100.0 * n_wins[1] / n_played}% Nbr blacks: {np.sum(env.board == 1)}')
     print(f'white won {100.0 * n_wins[-1] / n_played}% Nbr whites: {np.sum(env.board == -1)}')
