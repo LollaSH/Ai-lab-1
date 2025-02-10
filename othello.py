@@ -86,10 +86,45 @@ class Graphics:
         self.root.update()
 
 def has_won(board, player):
-    if len(possible_moves(board, player)) == 0 and len(possible_moves(board, -player)) == 0 and np.sum(board == player) > np.sum(board == -player):
+    nbrEmpty = np.sum(board == 0)
+    posMovesPlayer = len(possible_moves(board, player))
+    posMovesOthPlayer = len(possible_moves(board, -player))
+    pl = np.sum(board == player)
+    minuspl = np.sum(board == -player)
+    
+    if posMovesPlayer == 0 and posMovesOthPlayer == 0 and pl > minuspl:
         return True
-    else:
+    elif posMovesPlayer == 0 and posMovesOthPlayer == 0 and pl < pl:
         return False
+    elif nbrEmpty == 1 and posMovesPlayer == 0 and posMovesOthPlayer == 1:
+        temp_move = possible_moves(board, -player)[0]
+        temp_board = update_board(board, temp_move)
+        pl = np.sum(temp_board == player)
+        minuspl = np.sum(temp_board == -player)
+        if pl > minuspl:
+            return True
+        elif minuspl > pl:
+            return False
+    elif nbrEmpty == 1 and posMovesPlayer == 1 and posMovesOthPlayer == 0:
+        temp_move = possible_moves(board, player)[0]
+        temp_board = update_board(board, temp_move)
+        pl = np.sum(temp_board == player)
+        minuspl = np.sum(temp_board == -player)
+        if pl > minuspl:
+            return True
+        elif minuspl > pl:
+            return False
+    elif nbrEmpty == 1 and posMovesPlayer == 1 and posMovesOthPlayer == 1:
+        temp_move = possible_moves(board, -player)[0]
+        temp_board = update_board(board, temp_move)
+        pl = np.sum(temp_board == player)
+        minuspl = np.sum(temp_board == -player)
+        if pl > minuspl:
+            return True
+        elif minuspl > pl:
+            return False
+    return False
+
 
 
 def possible_moves(board, player):
@@ -255,8 +290,8 @@ class Othello:
 
         self.board = update_board(self.board, move=move)
 
-        if has_won(self.board, player):
-            self.winner = player
+        #if has_won(self.board, player):
+        #    self.winner = player
 
 
 class HumanPlayer:
@@ -475,7 +510,7 @@ class MonteCarlo:
 def main():
     
 
-    n_games = 150
+    n_games = 1
 
     if len(argv) >= 1:
         try:
@@ -492,8 +527,8 @@ def main():
         0: 0
     }
     
-    #player1 = HumanPlayer(1, graphics)
-    player1 = RandomPlayer(1)
+    player1 = HumanPlayer(1, graphics)
+    #player1 = RandomPlayer(1)
     #player1 = AIOutline(1)
     #player1 = MiniMax(1)
     #player1 = EvalMiniMax(1)
@@ -501,9 +536,9 @@ def main():
     #player1 = MonteCarlo(1)
 
     #player2 = HumanPlayer(-1, graphics)
-    player2 = RandomPlayer(-1)
+    #player2 = RandomPlayer(-1)
     #player2 = MiniMax(-1)
-    #player2 = EvalMiniMax(-1)
+    player2 = EvalMiniMax(-1)
     #player2 = EvalAlphaBeta(-1)
     #player2 = MonteCarlo(-1)
 

@@ -85,11 +85,53 @@ class Graphics:
 
         self.root.update()
 
-def has_won(board, player):
-    if len(possible_moves(board, player)) == 0 and len(possible_moves(board, -player)) == 0 and np.sum(board == player) > np.sum(board == -player):
-        return True
+def has_won(e, player):
+    nbrEmpty = np.sum(e.board == 0)
+    movesPL = possible_moves(e.board, player)
+    movesOthPL = possible_moves(e.board, -player)
+    posMovesPlayer = len(movesPL)
+    posMovesOthPlayer = len(movesOthPL)
+    pl = np.sum(e.board == player)
+    minuspl = np.sum(e.board == -player)
+    
+    if posMovesPlayer == 0 and posMovesOthPlayer == 0 and pl > minuspl:
+        return player
+    elif posMovesPlayer == 0 and posMovesOthPlayer == 0 and pl == pl:
+        return 2
+    elif posMovesPlayer == 0 and posMovesOthPlayer == 0 and pl < pl:
+        return -player
+    elif nbrEmpty == 1 and posMovesPlayer == 0 and posMovesOthPlayer == 1:
+        temp_move = movesOthPL[0]
+        temp_board = update_board(e.board, temp_move)
+        pl = np.sum(temp_board == player)
+        minuspl = np.sum(temp_board == -player)
+        if pl > minuspl:
+            return player
+        elif minuspl > pl:
+            return -player
+        else: return 2
+    elif nbrEmpty == 1 and posMovesPlayer == 1 and posMovesOthPlayer == 0:
+        temp_move = movesPL[0]
+        temp_board = update_board(e.board, temp_move)
+        pl = np.sum(temp_board == player)
+        minuspl = np.sum(temp_board == -player)
+        if pl > minuspl:
+            return player
+        elif minuspl > pl:
+            return -player
+        else: return 2
+    elif nbrEmpty == 1 and posMovesPlayer == 1 and posMovesOthPlayer == 1:
+        temp_move = movesOthPL[0]
+        temp_board = update_board(e.board, temp_move)
+        pl = np.sum(temp_board == player)
+        minuspl = np.sum(temp_board == -player)
+        if pl > minuspl:
+            return player
+        elif minuspl > pl:
+            return -player
+        else: return 2
     else:
-        return False
+        return 0
 
 
 def possible_moves(board, player):
@@ -205,18 +247,21 @@ class Othello:
         return possible_moves(self.board, player)
 
     def game_over(self):
-        if np.sum(self.board == 0) == 0 or (len(self.get_possible_moves(player=1)) == 0 and len(self.get_possible_moves(player=-1)) == 0):
-            blacks = np.sum(self.board == 1)
-            whites = np.sum(self.board == -1)
-            if blacks > whites:
-                self.winner = 1
-            elif whites > blacks:
-                self.winner = -1
-            else:
-                self.winner = 0
-            return True
-        else:
-            return False
+        return self.winner != 0
+
+    # def game_over(self):
+    #     if np.sum(self.board == 0) == 0 or (len(self.get_possible_moves(player=1)) == 0 and len(self.get_possible_moves(player=-1)) == 0):
+    #         blacks = np.sum(self.board == 1)
+    #         whites = np.sum(self.board == -1)
+    #         if blacks > whites:
+    #             self.winner = 1
+    #         elif whites > blacks:
+    #             self.winner = -1
+    #         else:
+    #             self.winner = 0
+    #         return True
+    #     else:
+    #         return False
 
     def reset(self):
         self.board[:,:] = 0
@@ -254,9 +299,9 @@ class Othello:
             raise Exception('Cannot place a piece in a non-empty slot!')
 
         self.board = update_board(self.board, move=move)
-
-        if has_won(self.board, player):
-            self.winner = player
+        self.winner = has_won(self, player)
+        #if has_won(self, player):
+        #    self.winner = player
 
 
 class HumanPlayer:
@@ -361,9 +406,7 @@ class EvalMiniMax:
         board = env.get_board()
         best_score = -np.inf
         best_move = None
-        posMoves = possible_moves(board, self.player)
-        if len(posMoves) == 0: return
-        for move in posMoves:
+        for move in possible_moves(board, self.player):
             score = self.min_player(update_board(board, move), 1)
             if score > best_score:
                 best_score = score
@@ -373,31 +416,16 @@ class EvalMiniMax:
     def min_player(self, board, depth):
         if has_won(board, self.player): return 10
         elif has_won(board, -self.player): return -10
-        elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
-        posMovesMinPl = possible_moves(board, -self.player)
-        if len(posMovesMinPl) != 0:
-            scores = [self.max_player(update_board(board, move), depth+1) for move in possible_moves(board, -self.player)]
-            return min(scores)
-        posMovesPl = possible_moves(board, self.player)
-        if len(posMovesPl) != 0:
-            scores = [self.min_player(update_board(board, move), depth+1) for move in posMovesPl]
-            return max(scores)
-        else: return np.sum(board == self.player) - np.sum(board == -self.player)
-        
+        elif depth == self.max_depth: return np.sum(self.player * board * self.piece_scores)
+        scores = [self.max_player(update_board(board, move), depth+1) for move in possible_moves(board, -self.player)]
+        return min(scores)
 
     def max_player(self, board, depth):
         if has_won(board, self.player): return 10
         elif has_won(board, -self.player): return -10
-        elif depth == self.max_depth: return np.sum(board == self.player) - np.sum(board == -self.player)
-        posMovesPl = possible_moves(board, self.player)
-        if len(posMovesPl) != 0:
-            scores = [self.min_player(update_board(board, move), depth+1) for move in posMovesPl]
-            return max(scores)
-        posMovesMinPl = possible_moves(board, -self.player)
-        if len(posMovesMinPl) != 0:
-            scores = [self.max_player(update_board(board, move), depth+1) for move in posMovesMinPl]
-            return min(scores)
-        else: return np.sum(board == self.player) - np.sum(board == -self.player)
+        elif depth == self.max_depth: return np.sum(self.player * board * self.piece_scores)
+        scores = [self.min_player(update_board(board, move), depth+1) for move in possible_moves(board, self.player)]
+        return max(scores)
 
 class EvalAlphaBeta:
     def __init__(self, player, max_depth=3):
@@ -489,7 +517,7 @@ def main():
     n_wins = {
         1: 0,
         -1: 0,
-        0: 0
+        2: 0
     }
     
     #player1 = HumanPlayer(1, graphics)
@@ -516,12 +544,16 @@ def main():
             player1.move(env)
             if not graphics.running: break
             graphics.draw(env.board)
-            if env.game_over(): break
+            if env.game_over():
+                print("white turn next")
+                break
             time.sleep(0)
             player2.move(env)
             if not graphics.running: break
             graphics.draw(env.board)
-            if env.game_over(): break
+            if env.game_over():
+                print("black turn next")
+                break
 
         if isinstance(player1, HumanPlayer) or isinstance(player2, HumanPlayer):
             time.sleep(1)
@@ -534,7 +566,7 @@ def main():
     print('Results:')
     print(f'black won {100.0 * n_wins[1] / n_played}% Nbr blacks: {np.sum(env.board == 1)}')
     print(f'white won {100.0 * n_wins[-1] / n_played}% Nbr whites: {np.sum(env.board == -1)}')
-    print(f'draw {100.0 * n_wins[0] / n_played}% Nbr blanks: {np.sum(env.board == 0)}')
+    print(f'draw {100.0 * n_wins[2] / n_played}% Nbr blanks: {np.sum(env.board == 0)}')
 
     time.sleep(1)
 
