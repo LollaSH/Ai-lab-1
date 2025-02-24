@@ -65,6 +65,7 @@ class Localizer:
         
         self.__rs = RobotSim( self.__trueState, self.__sm)
         self.__HMM = Filters.HMMFilter( self.__probs, self.__tm, self.__om, self.__sm)
+        self.__SHMM = Filters.HMMSmoother(self.__tm, self.__om, self.__sm)
 
 
     #
@@ -86,6 +87,7 @@ class Localizer:
         self.__trueState = self.__rs.move_once(self.__tm)
         self.__sense = self.__rs.sense_in_current_state(self.__om)
         self.__probs = self.__HMM.filter( self.__sense)
+        #self.__smooth = self.__SHMM.smooth() <---- Vi måste använda smooth här och som vi vill ha smooth ska vi uppdatera fpositions med smooth
         
         fPositions = self.__probs.copy()
         
