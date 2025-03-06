@@ -12,8 +12,14 @@ import random
 from models import *
 import Filters
 
+from collections import deque
+
+
+
 class Localizer:
-    def __init__(self, sm, uniformF):
+    def __init__(self, sm, uniformF, k):
+        # Initialize with 5 zeros
+        self.window = deque([0] * k, maxlen=k)
 
         self.__sm = sm
 
@@ -26,6 +32,10 @@ class Localizer:
         # change in initialise in case you want to start out with something else...
         self.initialise()
 
+    def update_window(self, new_value):
+        self.window.append(new_value)  # Adds to the back, removes oldest from the front
+        print(list(self.window))  # Print for visualization
+    
     # retrieve the transition model that we are currently working with
     def get_transition_model(self) -> np.array:
         return self.__tm
@@ -65,7 +75,7 @@ class Localizer:
         
         self.__rs = RobotSim( self.__trueState, self.__sm)
         self.__HMM = Filters.HMMFilter( self.__probs, self.__tm, self.__om, self.__sm)
-        self.__SHMM = Filters.HMMSmoother(self.__tm, self.__om, self.__sm)
+        self.__HMMSmoother = Filters.HMMSmoother(self.__tm, self.__om, self.__sm)
 
 
     #
@@ -86,8 +96,10 @@ class Localizer:
     def update(self) -> (bool, int, int, int, int, int, int, int, int, np.array(1)) :
         self.__trueState = self.__rs.move_once(self.__tm)
         self.__sense = self.__rs.sense_in_current_state(self.__om)
-        self.__probs = self.__HMM.filter( self.__sense)
-        #self.__smooth = self.__SHMM.smooth() <---- Vi måste använda smooth här och som vi vill ha smooth ska vi uppdatera fpositions med smooth
+        filteredAlpha = self.__HMM.filter( self.__sense)
+        self.update_window(self.__sense)
+        self.__probs = self.__HMMSmoother.smooth(self.window, filteredAlpha)
+
         
         fPositions = self.__probs.copy()
         
@@ -115,7 +127,11 @@ class Localizer:
     def updateWTruePose(self, trueState) -> (bool, int, int, int, int, int, int, int, int, np.array(1)) :
         self.__trueState = trueState
         self.__sense = self.__rs.sense_in_current_state()
-        self.__probs = self.__HMM.filter( self.__sense)
+        #self.__probs = self.__HMM.filter( self.__sense)
+        filteredAlpha = self.__HMM.filter( self.__sense)
+        self.update_window(self.__sense)
+
+        self.__probs = self.__HMMSmoother.smooth(self.window, filteredAlpha)
         
         fPositions = self.__probs.copy()
         
